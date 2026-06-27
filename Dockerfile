@@ -41,6 +41,6 @@ COPY --from=builder --chown=appuser:appgroup /build/target/quarkus-app/quarkus/ 
 
 EXPOSE 8080
 
-ENV JAVA_OPTS="-Xms64m -Xmx256m -XX:+UseG1GC"
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:+UseSerialGC"
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar quarkus-run.jar"]

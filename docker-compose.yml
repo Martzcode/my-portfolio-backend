@@ -12,6 +12,7 @@ services:
     image: postgres:16-alpine
     container_name: portfolio-postgres
     restart: unless-stopped
+    command: [ "postgres", "-c", "shared_buffers=16MB", "-c", "max_connections=20", "-c", "work_mem=2MB", "-c", "maintenance_work_mem=8MB" ]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-portfolio_db}
       POSTGRES_USER: ${POSTGRES_USER:-portfolio_user}
@@ -29,18 +30,18 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.4'
-          memory: 512M
+          cpus: '0.2'
+          memory: 256M
     networks:
       - portfolio-net
 
   # ──────────────────────────────────────────────
-  # Quarkus application (Native mode)
+  # Quarkus application (JVM mode)
   # ──────────────────────────────────────────────
   app:
     build:
       context: .
-      dockerfile: Dockerfile.native
+      dockerfile: Dockerfile
     container_name: portfolio-backend
     restart: unless-stopped
     environment:
@@ -69,8 +70,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.6'
-          memory: 512M
+          cpus: '0.5'
+          memory: 256M
     networks:
       - portfolio-net
 
