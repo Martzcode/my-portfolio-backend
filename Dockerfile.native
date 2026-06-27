@@ -1,0 +1,37 @@
+# ============================================================
+# Dockerfile.native – Build natif multi-stage (GraalVM / Mandrel)
+# ============================================================
+
+### Stage 1 – Compilation Native (GraalVM) ###
+FROM quay.io/quarkus/ubi-quarkus-mandrel-builder-image:23.1-jdk-21 AS builder
+
+USER root
+# Installation de findutils requis par mvnw
+RUN microdnf install -y findutils && microdnf clean all
+
+USER quarkus
+WORKDIR /build
+
+# Copie des fichiers Maven
+COPY --chown=quarkus:quarkus .mvn/ .mvn/
+COPY --chown=quarkus:quarkus mvnw pom.xml ./
+
+# Téléchargement des dépendances hors ligne
+RUN ./mvnw dependency:go-offline -q
+
+# Copie des sources et compilation native
+COPY --chown=quarkus:quarkus src/ src/
+RUN ./mvnw package -Dnative -DskipTests -q
+
+### Stage 2 – Runtime minimal (sans JVM) ###
+FROM quay.io/quarkus/ubi9-quarkus-micro-image:2.0
+
+WORKDIR /work/
+
+# Copie du binaire compilé
+COPY --from=builder --chown=1001:root --chmod=0755 /build/target/*-runner /work/application
+
+EXPOSE 8080
+USER 1001
+
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]
