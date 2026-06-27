@@ -1,0 +1,32 @@
+# ============================================================
+# .dockerignore – Build multi-stage (Maven compile inside Docker)
+# On exclut ce qui est inutile au build, mais on garde les sources.
+# ============================================================
+
+# Résultats de build locaux (le build se fait dans Docker)
+target/
+
+# Git
+.git/
+.gitignore
+
+# Docker (pas besoin dans l'image)
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Variables d'environnement locales (sensibles)
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+*.swp
+*.swo
+
+# Docs
+README.md
+LICENSE
