@@ -1,0 +1,24 @@
+# ============================================================
+# Dockerfile.deploy – Utilisé en production / CI-CD
+# Reçoit le JAR pré-compilé par GitHub Actions
+# ============================================================
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /deployments
+
+# Sécurité : utilisateur non-root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
+# Copie du package Quarkus fast-jar pré-compilé
+COPY --chown=appuser:appgroup target/quarkus-app/lib/ lib/
+COPY --chown=appuser:appgroup target/quarkus-app/*.jar ./
+COPY --chown=appuser:appgroup target/quarkus-app/app/ app/
+COPY --chown=appuser:appgroup target/quarkus-app/quarkus/ quarkus/
+
+EXPOSE 8080
+
+# Optimisations mémoires appliquées
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=70.0 -XX:+UseSerialGC"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar quarkus-run.jar"]

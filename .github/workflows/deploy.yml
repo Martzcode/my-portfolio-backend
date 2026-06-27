@@ -1,0 +1,74 @@
+name: Deploy Portfolio Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Récupération du code source
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Configuration du JDK 21
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # 3. Compilation du projet (sans exécuter les tests pour accélérer le CD)
+      - name: Build with Maven
+        run: ./mvnw package -DskipTests -q
+
+      # 4. Préparation des fichiers requis pour la livraison
+      - name: Prepare deployment package
+        run: |
+          mkdir -p deploy/target
+          cp docker-compose.yml deploy/
+          cp .env.example deploy/
+          cp Dockerfile.deploy deploy/Dockerfile
+          cp -r target/quarkus-app deploy/target/
+
+      # 5. Copie des fichiers sur la VM OCI (SCP)
+      - name: Copy files to OCI VM
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          source: "deploy/*"
+          target: "~/portfolio-backend"
+          strip_components: 1
+
+      # 6. Redémarrage de la stack Docker via SSH
+      - name: Restart Stack on OCI VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            cd ~/portfolio-backend
+            
+            # Initialise le fichier .env de prod s'il n'existe pas
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              # Génère un mot de passe PostgreSQL aléatoire de 32 caractères pour sécuriser la prod
+              SECURE_DB_PASS=$(openssl rand -hex 16)
+              sed -i "s/changeme_in_production/${SECURE_DB_PASS}/g" .env
+              echo ".env file initialized with secure credentials"
+            fi
+            
+            # Relancer les services avec reconstruction locale de l'image (rapide car pré-compilée)
+            docker compose down
+            docker compose up --build -d
+            
+            # Nettoyer les anciennes images intermédiaires pour économiser le stockage VM
+            docker image prune -f
